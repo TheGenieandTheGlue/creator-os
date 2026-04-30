@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Creator OS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#F5F0E8;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const RUTAS = {
+  colecciones: {
+    nombre: "Colexiones con X", emoji: "🗂️", color: "#F5A623",
+    pasos: [
+      { id: "hook", label: "Hook, título y dinámica", desc: "Decide la dinámica del video (ruleta, versus, unboxing...), escribe 3 opciones de título y elige el ángulo del thumbnail. Esto define cómo vas a grabar.", minutos: 20, minutosMax: 20, tipo: "decision", paralelo: false, bloquea: ["grabar_principal"], tip: "Ponle un límite estricto de 20 min. Si no tienes el título perfecto, elige el mejor de los 3 y sigue." },
+      { id: "grabar_principal", label: "Grabar video principal", desc: "Graba con la dinámica y el gancho ya definidos. Setup cámara, luces, figuras. Graba de corrido aunque te equivoques.", minutos: 105, minutosMax: 150, tipo: "grabacion", paralelo: false, bloquea: ["corte_brutal"], tip: "Ya sabes qué necesitas capturar — el hook lo decidiste antes. Graba enfocado en ese ángulo." },
+      { id: "corte_brutal", label: "Corte brutal", desc: "Solo eliminar lo que claramente no funciona. Sin afinar, sin efectos. Solo quitar basura. NUNCA el mismo día que grabas.", minutos: 25, minutosMax: 30, tipo: "edicion", paralelo: false, bloquea: ["backgrounds"], tip: "⚠️ Regla fija: hazlo AL DÍA SIGUIENTE de grabar, nunca el mismo día. Timer máximo 25 min." },
+      { id: "backgrounds", label: "Buscar backgrounds por figura", desc: "Ya sabes qué figuras salieron. Busca en Pinterest o genera con IA el background de cada una. Guarda todo en carpeta del video.", minutos: 25, minutosMax: 40, tipo: "investigacion", paralelo: false, bloquea: ["grabar_exhibiciones"], tip: "Ponle timer de 4 min por figura. Si no encuentras en Pinterest en 3 min, genera con IA directo." },
+      { id: "grabar_exhibiciones", label: "Grabar exhibiciones", desc: "Con backgrounds ya listos: iPad + plataforma giratoria. Graba todas las figuras de corrido. ~1.5 min por figura.", minutos: 30, minutosMax: 45, tipo: "grabacion", paralelo: false, bloquea: ["edicion_final"], tip: "Backgrounds listos antes de encender la cámara. Graba todas seguidas sin apagar entre figuras." },
+      { id: "edicion_final", label: "Edición final del largo", desc: "Con el material limpio del corte brutal: afina ritmo, agrega efectos, contador animado, música. La parte que te gusta.", minutos: 75, minutosMax: 90, tipo: "edicion", paralelo: false, bloquea: ["edicion_exhibiciones"], tip: "Energía alta para este paso. No lo hagas cansado — es cuando más disfrutes el proceso." },
+      { id: "edicion_exhibiciones", label: "Editar exhibiciones + tarjetas Canva", desc: "Edita cada exhibición en Shotcut con plantilla. Haz tarjetas en Canva: Referencia, Crossover, Rareza, número de colector.", minutos: 50, minutosMax: 60, tipo: "edicion", paralelo: false, bloquea: ["insertar"], tip: "Duplica la tarjeta del video anterior en Canva — solo cambia los datos. No partas de cero." },
+      { id: "insertar", label: "Insertar exhibiciones en el largo", desc: "Cuando mencionas cada figura, inserta su exhibición + tarjeta de detalles. Luego Canva final: escudo actualizado + sonidos.", minutos: 35, minutosMax: 45, tipo: "edicion", paralelo: false, bloquea: ["publicar"], tip: "Marca primero los timestamps de cada figura en la timeline, luego inserta de corrido." },
+      { id: "publicar", label: "Thumbnail + subir + Shorts", desc: "Ejecuta el thumbnail (ya lo decidiste en el Paso 0). Sube el largo. Graba voice overs de Shorts y programa para subir diario.", minutos: 40, minutosMax: 45, tipo: "publicacion", paralelo: false, bloquea: [], tip: "El thumbnail ya está decidido — solo ejecútalo. No lo replantees aquí o pierdes 30 min." },
+    ],
+  },
+  nego: {
+    nombre: "Nego Series", emoji: "🎬", color: "#4A90D9",
+    pasos: [
+      { id: "hook_nego", label: "Definir hook y título", desc: "El guión ya existe — pero antes de grabar define el título y el ángulo. '¿Qué aprendió Walter White de negocios?' engancha diferente a 'Lecciones de Breaking Bad'.", minutos: 15, minutosMax: 20, tipo: "decision", paralelo: false, bloquea: ["grabar_narracion"], tip: "Tienes guiones listos — elige el que tenga el título más fuerte, no el que más te guste a ti." },
+      { id: "grabar_narracion", label: "Grabar narración (solo voz)", desc: "Sin cámara. Solo voz con el guión de Notion como referencia. Graba de corrido aunque te equivoques.", minutos: 30, minutosMax: 40, tipo: "grabacion", paralelo: false, bloquea: ["capturar_clips"], tip: "Lee el guión en voz alta UNA vez antes de grabar. La primera toma suele ser la más natural." },
+      { id: "capturar_clips", label: "Capturar/conseguir clips de series", desc: "Usa tus timestamps de Notion. Si ya tienes los clips: organízalos. Si no: captura en VLC u OBS desde el timestamp exacto.", minutos: 25, minutosMax: 40, tipo: "investigacion", paralelo: false, bloquea: ["editar_nego"], tip: "Captura siempre 10 segundos extra antes y después del timestamp — da margen para cortar en edición." },
+      { id: "editar_nego", label: "Editar: narración + clips + gráficas", desc: "Narración va primero en la timeline. Luego colocas los clips de series encima. Gráficas propias al final.", minutos: 60, minutosMax: 75, tipo: "edicion", paralelo: false, bloquea: ["publicar_nego"], tip: "El ritmo lo marca tu voz — los clips son ilustraciones, no el protagonista." },
+      { id: "publicar_nego", label: "Thumbnail + subir", desc: "Thumbnail: logo de la serie más reconocible + concepto de negocio en texto grande.", minutos: 20, minutosMax: 25, tipo: "publicacion", paralelo: false, bloquea: [], tip: "Muestra la serie Y una palabra de negocio — doble gancho de algoritmo." },
+    ],
+  },
+  entertainment: {
+    nombre: "Entertainment", emoji: "🎭", color: "#E040FB", primerVideo: true,
+    pasos: [
+      { id: "what_if", label: "Definir el What If del video", desc: "¿Qué pregunta imposible vas a responder visualmente? Ej: '¿Qué tal si los Pokémon fueran mexicanos?' Define el concepto, el gancho y el título antes de generar nada.", minutos: 15, minutosMax: 20, tipo: "decision", paralelo: false, bloquea: ["generar_visual_ent"], tip: "El título ES el video en este formato. Si el título no genera curiosidad inmediata, cambia el concepto." },
+      { id: "generar_visual_ent", label: "Generar imágenes/video con IA", desc: "Genera el contenido visual del What If con IA (Midjourney, DALL-E, Runway...). Genera más del que necesitas — siempre hay piezas que no funcionan.", minutos: null, minutosMax: null, tipo: "produccion", paralelo: false, bloquea: ["guion_ent"], tip: "Primero genera TODO el visual, luego escribe. Las imágenes te van a inspirar qué decir.", esExperimento: true },
+      { id: "guion_ent", label: "Escribir guión + grabar voz", desc: "Escribe mientras ves las imágenes generadas. Graba tu narración — tu voz da contexto y humor al visual.", minutos: null, minutosMax: null, tipo: "grabacion", paralelo: false, bloquea: ["montar_ent"], tip: "Tu voz es el diferenciador. El visual IA lo puede hacer cualquiera — tu perspectiva y humor no." },
+      { id: "montar_ent", label: "Montar: voz + visual IA", desc: "Sincroniza tu narración con las imágenes. Ritmo rápido — este formato funciona mejor ágil.", minutos: null, minutosMax: null, tipo: "edicion", paralelo: false, bloquea: ["publicar_ent"], tip: "Corta a ritmo de tu voz. Cada imagen nueva debe coincidir con un punto de énfasis." },
+      { id: "publicar_ent", label: "Thumbnail + subir", desc: "Thumbnail: la imagen IA más sorprendente del video. El título ya lo tienes del paso 1.", minutos: null, minutosMax: null, tipo: "publicacion", paralelo: false, bloquea: [], tip: "El thumbnail debe verse imposible o absurdo — eso es lo que detiene el scroll." },
+    ],
+  },
+  leyllama: {
+    nombre: "La Ley Llama", emoji: "🦙", color: "#00BFA5",
+    pasos: [
+      { id: "crear_avatar", label: "Crear avatar de la Llama-juez", desc: "Con IA: la Llama con toga y mazo en la sala de juicio. Este asset es la identidad del canal — se reutiliza en todos los episodios. Solo se hace UNA vez.", minutos: 30, minutosMax: 45, tipo: "produccion", paralelo: false, bloquea: ["teoria"], tip: "Invierte tiempo aquí. Genera varias versiones y elige la más carismática. Esta imagen ES el canal.", soloUnaVez: true },
+      { id: "teoria", label: "Elegir teoría + veredicto de la Llama", desc: "¿Qué conspiración llega a la sala de juicio hoy? Define la teoría Y decide ya el veredicto final — ese es el chiste central del episodio.", minutos: 20, minutosMax: 25, tipo: "decision", paralelo: false, bloquea: ["guion_llama"], tip: "El veredicto debe ser absurdo pero con lógica interna. La Llama necesita un por qué ridículo." },
+      { id: "guion_llama", label: "Escribir guión en voz alta", desc: "Estructura fija: apertura del caso → presentación de evidencia ridícula → interrogatorio burlesco → veredicto de la Llama.", minutos: 40, minutosMax: 50, tipo: "guion", paralelo: false, bloquea: ["visuales_llama"], tip: "Si no te ríes leyéndolo, reescríbelo. El humor funciona distinto en texto que en audio." },
+      { id: "visuales_llama", label: "Reunir visuales: memes + clips + IA", desc: "⚠️ BUSCA LOS MEMES ANTES DE ESCRIBIR EL GUIÓN. Los mejores visuales inspiran los mejores chistes.", minutos: 25, minutosMax: 35, tipo: "investigacion", paralelo: false, bloquea: ["grabar_llama"], tip: "Primera vez: busca efectos de sala de juicio en Freesound.org y guárdalos para siempre." },
+      { id: "grabar_llama", label: "Grabar narración (voz en off)", desc: "Sin cámara — voz en off con el avatar de la Llama en pantalla. Tono de juicio burlesco: lento en las partes serias, rápido en los absurdos.", minutos: 30, minutosMax: 35, tipo: "grabacion", paralelo: false, bloquea: ["editar_llama"], tip: "El contraste de ritmo es la clave del humor. Practica el guión en voz alta una vez antes." },
+      { id: "editar_llama", label: "Editar con humor", desc: "Narración + visuales + efectos de comedia. El timing de los cortes hace el chiste — un corte bien puesto vale más que 10 efectos.", minutos: 50, minutosMax: 60, tipo: "edicion", paralelo: false, bloquea: ["publicar_llama"], tip: "Los efectos de sala de juicio (martillazo, murmullo) crean identidad. Úsalos siempre igual." },
+      { id: "publicar_llama", label: "Thumbnail + subir", desc: "Thumbnail obligatorio: Llama-juez con toga mirando a cámara + nombre de la conspiración en rojo.", minutos: 15, minutosMax: 20, tipo: "publicacion", paralelo: false, bloquea: [], tip: "Lo conspirativo + lo absurdo en una imagen. Esa tensión visual es el click." },
+    ],
+  },
+  asmrdex: {
+    nombre: "ASMR Dex", emoji: "🌀", color: "#7C4DFF", primerVideo: true,
+    pasos: [
+      { id: "experimento_tecnico", label: "Experimento técnico: elige tus herramientas", desc: "Antes de producir nada: prueba ElevenLabs para audio ASMR y Runway/Kling para video. Genera 1 clip de prueba en cada herramienta con el mismo personaje.", minutos: null, minutosMax: null, tipo: "investigacion", paralelo: false, bloquea: ["personaje"], tip: "Este paso solo lo haces una vez. Evalúa: calidad, velocidad y control. La más rápida gana.", esExperimento: true },
+      { id: "personaje", label: "Elegir personaje y universo", desc: "¿Quién hace ASMR hoy? (payaso, medusa, robot oxidado...). Define el personaje, su sonido único y su ambiente visual.", minutos: null, minutosMax: null, tipo: "decision", paralelo: false, bloquea: ["audio_asmr", "visual_asmr"], tip: "El más memorable no es el más raro — es el que tiene el sonido ASMR más satisfactorio." },
+      { id: "audio_asmr", label: "Generar audio ASMR con IA", desc: "Crea los sonidos ASMR del personaje con la herramienta elegida. Mínimo 3 variaciones, elige la mejor.", minutos: null, minutosMax: null, tipo: "produccion", paralelo: true, bloquea: ["componer"], tip: "El audio es lo más importante en ASMR. Genera más tiempo del que necesitas." },
+      { id: "visual_asmr", label: "Generar visuales del personaje IA", desc: "Crea el personaje en su universo. Un loop de 10-15s bien hecho es suficiente para un video de 30 min.", minutos: null, minutosMax: null, tipo: "produccion", paralelo: true, bloquea: ["componer"], tip: "Loop suave y continuo — el ASMR necesita que los ojos descansen, no que se distraigan." },
+      { id: "componer", label: "Componer video final", desc: "Sincroniza audio ASMR + visuales. Fade in suave al inicio, fade out al final. Sin cortes bruscos.", minutos: null, minutosMax: null, tipo: "edicion", paralelo: false, bloquea: ["publicar_asmr"], tip: "Un corte arruina el estado de relajación. Mantén la continuidad." },
+      { id: "publicar_asmr", label: "Thumbnail + subir", desc: "Thumbnail: el personaje claramente visible y raro. Tags ASMR específicos + nombre del universo.", minutos: null, minutosMax: null, tipo: "publicacion", paralelo: false, bloquea: [], tip: "La rareza visual del personaje es el gancho de click en ASMR." },
+    ],
+  },
+};
+
+const TIPO_COLOR = { grabacion:"#F5A623", edicion:"#00BFA5", guion:"#FF6B6B", decision:"#E040FB", investigacion:"#4A90D9", produccion:"#A8E6CF", publicacion:"#888" };
+const TIPO_LABEL = { grabacion:"GRABAR", edicion:"EDITAR", guion:"GUIÓN", decision:"DECIDIR", investigacion:"INVESTIGAR", produccion:"PRODUCIR", publicacion:"PUBLICAR" };
+
+function useStorage(key, defaultValue) {
+  const [value, setValue] = useState(() => {
+    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : defaultValue; } catch { return defaultValue; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  }, [value, key]);
+  return [value, setValue];
+}
+
+function Countdown({ totalSeg, onComplete }) {
+  const [restante, setRestante] = useState(totalSeg);
+  const [activo, setActivo] = useState(false);
+  const [empezado, setEmpezado] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (activo && restante > 0) {
+      ref.current = setInterval(() => setRestante(s => { if (s <= 1) { clearInterval(ref.current); setActivo(false); onComplete?.(); return 0; } return s - 1; }), 1000);
+    } else clearInterval(ref.current);
+    return () => clearInterval(ref.current);
+  }, [activo]);
+  const pct = Math.max(0, (restante / totalSeg) * 100);
+  const min = Math.floor(restante / 60);
+  const seg = restante % 60;
+  const urgente = pct < 20;
+  const color = urgente ? "#FF4444" : pct < 50 ? "#F5A623" : "#00BFA5";
+  return (
+    <div style={{ background:"#FFFAF4", border:`2px solid ${color}50`, borderRadius:12, padding:"16px" }}>
+      <div style={{ height:8, background:"#E8DDD0", borderRadius:4, marginBottom:14, overflow:"hidden" }}>
+        <div style={{ height:"100%", width:`${pct}%`, borderRadius:3, background:color, transition:"width 1s linear, background 0.5s" }} />
+      </div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ fontFamily:"'Bangers',cursive", fontWeight:400, fontSize:44, color, letterSpacing:"2px" }}>
+          {String(min).padStart(2,"0")}:{String(seg).padStart(2,"0")}
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          {!empezado ? (
+            <button onClick={() => { setEmpezado(true); setActivo(true); }} style={{ background:color, color:"#000", border:"none", borderRadius:8, padding:"10px 20px", fontSize:13, cursor:"pointer", fontFamily:"'Bangers',cursive", letterSpacing:"1px" }}>ARRANCAR</button>
+          ) : (
+            <>
+              <button onClick={() => setActivo(a => !a)} style={{ background:activo?"#1c1c22":color, color:activo?"#666":"#000", border:"none", borderRadius:8, padding:"10px 16px", fontSize:16, cursor:"pointer" }}>{activo?"⏸":"▶"}</button>
+              <button onClick={() => { setRestante(totalSeg); setActivo(false); setEmpezado(false); }} style={{ background:"transparent", border:"1px solid #222", color:"#444", borderRadius:8, padding:"10px 14px", fontSize:14, cursor:"pointer" }}>↺</button>
+            </>
+          )}
+        </div>
+      </div>
+      {urgente && empezado && <div style={{ marginTop:10, fontSize:11, color:"#FF4444", textAlign:"center", fontFamily:"'Bangers',cursive", letterSpacing:"1px", letterSpacing:"1px" }}>⚡ ÚLTIMOS MINUTOS — TERMINA YA</div>}
+    </div>
+  );
+}
+
+function TareaCard({ t, tiempoDisponible, parcial, tareaSeleccionada, setTareaSeleccionada, playAlarm }) {
+  const key = `${t.video.id}-${t.id}`;
+  const seleccionada = tareaSeleccionada === key;
+  const faltanMin = t.minutos ? t.minutos - tiempoDisponible : 0;
+  return (
+    <div style={{ background:"#FFFAF4", border:`1px solid ${seleccionada?t.video.color:parcial?"#1c1c22":`${t.video.color}25`}`, borderLeft:`3px solid ${parcial?"#2a2a2a":t.video.color}`, borderRadius:9, padding:"13px 14px", opacity:parcial?0.75:1 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:11, color:parcial?"#b0a090":t.video.color, marginBottom:4, fontWeight:700 }}>{t.video.emoji} {t.video.nombre}</div>
+          <div style={{ fontSize:13, color:"#2a2020", marginBottom:5, lineHeight:1.5, fontWeight:700 }}>{t.label}</div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+            <span style={{ fontSize:9, background:`${TIPO_COLOR[t.tipo]}18`, color:TIPO_COLOR[t.tipo], padding:"2px 7px", borderRadius:4 }}>{TIPO_LABEL[t.tipo]}</span>
+            {t.minutos ? <span style={{ fontSize:10, color:"#555" }}>⏱ {t.minutos}min tight</span> : <span style={{ fontSize:11, color:"#9a8a7a", fontStyle:"italic" }}>⏱ tú decides</span>}
+            {parcial && t.minutos && <span style={{ fontSize:9, color:"#3a3a3a" }}>+{faltanMin}min más</span>}
+          </div>
+          {t.tip && <div style={{ marginTop:8, fontSize:11, color:"#9a8a7a", borderLeft:`2px solid ${t.video.color}40`, paddingLeft:8, lineHeight:1.6 }}>{t.tip}</div>}
+          {seleccionada && (
+            <div style={{ marginTop:12 }}>
+              <Countdown totalSeg={(t.minutos||tiempoDisponible)*60} onComplete={() => playAlarm()} />
+              {parcial && <div style={{ marginTop:8, fontSize:10, color:"#555", textAlign:"center" }}>Timer de {tiempoDisponible}min — retoma donde lo dejes</div>}
+            </div>
+          )}
+        </div>
+        <button onClick={() => setTareaSeleccionada(seleccionada?null:key)} style={{ background:seleccionada?"transparent":parcial?"#1c1c22":t.video.color, color:seleccionada?"#555":parcial?"#555":"#000", border:`1px solid ${seleccionada?"#333":parcial?"#2a2a2a":t.video.color}`, borderRadius:7, padding:"8px 12px", fontSize:12, cursor:"pointer", flexShrink:0, fontFamily:"'Bangers',cursive", letterSpacing:"1px" }}>
+          {seleccionada?"✕":parcial?"▶ PARCIAL":"▶"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [videos, setVideos] = useStorage("creator_os_v6", []);
+  const [view, setView] = useState("videos");
+  const [videoActivo, setVideoActivo] = useState(null);
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [nuevoCanal, setNuevoCanal] = useState("colecciones");
+  const [tiempoDisponible, setTiempoDisponible] = useState(30);
+  const [modoAccion, setModoAccion] = useState("tiempo");
+  const [tareaSeleccionada, setTareaSeleccionada] = useState(null);
+  const [contandoId, setContandoId] = useState(null);
+
+  const crearVideo = () => {
+    if (!nuevoNombre.trim()) return;
+    const r = RUTAS[nuevoCanal];
+    const nuevo = { id: Date.now(), nombre: nuevoNombre.trim(), canal: nuevoCanal, color: r.color, emoji: r.emoji, completados: {}, fecha: new Date().toLocaleDateString("es-MX", { day:"numeric", month:"short" }) };
+    setVideos(v => [nuevo, ...v]);
+    setVideoActivo(nuevo.id);
+    setNuevoNombre("");
+    setView("ruta");
+  };
+
+  const togglePaso = (videoId, pasoId) => setVideos(vs => vs.map(v => v.id !== videoId ? v : { ...v, completados: { ...v.completados, [pasoId]: !v.completados[pasoId] } }));
+  const getVideo = id => videos.find(v => v.id === id);
+
+  const getPasoEstado = (video, paso) => {
+    if (!video) return "bloqueado";
+    if (video.completados[paso.id]) return "done";
+    if (paso.paralelo) return "disponible";
+    const bloqueadores = RUTAS[video.canal].pasos.filter(p => p.bloquea.includes(paso.id));
+    return bloqueadores.every(p => video.completados[p.id]) ? "disponible" : "bloqueado";
+  };
+
+  const getTareasDisponibles = (video) => RUTAS[video.canal].pasos.filter(p => getPasoEstado(video, p) === "disponible").sort((a,b) => (a.minutos||999)-(b.minutos||999));
+  const getProgreso = (video) => { const p = RUTAS[video.canal].pasos; const done = p.filter(x => video.completados[x.id]).length; return { done, total: p.length, pct: Math.round((done/p.length)*100) }; };
+
+  const playAlarm = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [0,0.3,0.6].forEach(t => { const o = ctx.createOscillator(); const g = ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value = 880; g.gain.setValueAtTime(0.3, ctx.currentTime+t); g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime+t+0.25); o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+0.25); });
+    } catch(e) {}
+  };
+
+  const video = videoActivo ? getVideo(videoActivo) : null;
+  const ruta = video ? RUTAS[video.canal] : null;
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#F5F0E8", color:"#2a2020", fontFamily:"'Nunito',sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Bangers&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;}
+        ::-webkit-scrollbar{width:3px;} ::-webkit-scrollbar-thumb{background:#d4c9b0;}
+        .c{cursor:pointer;transition:all .18s;} .c:hover{opacity:.85;}
+        .lift{cursor:pointer;transition:all .18s;} .lift:hover{transform:translateY(-2px);}
+        @keyframes fu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}} .fu{animation:fu .2s ease forwards;}
+        input::placeholder{color:#bbb0a0;}
+      `}</style>
+
+      <div style={{ position:"sticky", top:0, zIndex:99, background:"#FFF8F0", borderBottom:"2px solid #E8DDD0", boxShadow:"0 2px 12px #00000010", padding:"13px 18px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ fontFamily:"'Bangers',cursive", fontWeight:400, fontSize:22, letterSpacing:"2px" }}>CREATOR<span style={{ color:video?.color||"#F5A623" }}>_OS</span></div>
+        <div style={{ display:"flex", gap:4 }}>
+          {[["videos","🎬"],["accion","⚡"]].map(([v,l]) => (
+            <button key={v} className="c" onClick={() => setView(v)} style={{ background:view===v||view==="ruta"&&v==="videos"?"#2a2020":"transparent", border:`1px solid ${view===v?"#2a2020":"transparent"}`, color:view===v?"#FFF8F0":"#9a8a7a", padding:"5px 12px", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"'DM Mono',monospace" }}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {view==="videos" && (
+        <div style={{ padding:"20px 18px" }} className="fu">
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
+            <div><div style={{ fontFamily:"'Bangers',cursive", fontWeight:400, fontSize:28, color:"#2a2020", letterSpacing:"1px" }}>Videos</div><div style={{ fontSize:11, color:"#9a8a7a", marginTop:2 }}>{videos.length} en producción</div></div>
+            <button className="c" onClick={() => setView("nuevo")} style={{ background:"#F5A623", color:"#fff", border:"none", borderRadius:10, padding:"10px 16px", fontSize:13, cursor:"pointer", fontFamily:"'Bangers',cursive", letterSpacing:"1px" }}>+ NUEVO</button>
+          </div>
+          {videos.length===0 && <div style={{ textAlign:"center", padding:"60px 20px", color:"#c4b4a4" }}><div style={{ fontSize:40, marginBottom:12 }}>🎬</div><div style={{ fontSize:12 }}>Crea tu primer proyecto</div></div>}
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {videos.map(v => { const prog = getProgreso(v); const disp = getTareasDisponibles(v).length; return (
+              <div key={v.id} className="lift" onClick={() => { setVideoActivo(v.id); setView("ruta"); }} style={{ background:"#FFFAF4", border:`1px solid ${v.color}35`, borderLeft:`4px solid ${v.color}`, borderRadius:12, padding:"14px 16px", boxShadow:"0 2px 8px #00000008" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                  <div><div style={{ fontSize:14, color:"#2a2020", marginBottom:3, fontWeight:700 }}>{v.emoji} {v.nombre}</div><div style={{ fontSize:11, color:"#9a8a7a" }}>{RUTAS[v.canal].nombre} · {v.fecha}</div></div>
+                  <div style={{ textAlign:"right" }}><div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:20, color:v.color }}>{prog.pct}%</div><div style={{ fontSize:11, color:"#9a8a7a" }}>{prog.done}/{prog.total}</div></div>
+                </div>
+                <div style={{ height:4, background:"#E8DDD0", borderRadius:2, marginBottom:8 }}><div style={{ height:"100%", width:`${prog.pct}%`, background:v.color, borderRadius:2, transition:"width .4s" }} /></div>
+                {disp>0 && <div style={{ fontSize:10, color:v.color }}>● {disp} paso{disp>1?"s":""} disponible{disp>1?"s":""} ahora</div>}
+                {prog.pct===100 && <div style={{ fontSize:11, color:"#4CAF50", fontWeight:700 }}>✓ Completado</div>}
+              </div>
+            ); })}
+          </div>
+        </div>
+      )}
+
+      {view==="nuevo" && (
+        <div style={{ padding:"20px 18px" }} className="fu">
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
+            <button className="c" onClick={() => setView("videos")} style={{ background:"transparent", border:"none", color:"#444", fontSize:18, cursor:"pointer" }}>←</button>
+            <div style={{ fontFamily:"'Bangers',cursive", fontWeight:400, fontSize:26, color:"#2a2020", letterSpacing:"1px" }}>Nuevo video</div>
+          </div>
+          <div style={{ marginBottom:18 }}>
+            <div style={{ fontSize:10, color:"#9a8a7a", letterSpacing:"2px", marginBottom:10, fontWeight:700 }}>CANAL</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {Object.entries(RUTAS).map(([k,r]) => (
+                <div key={k} className="lift" onClick={() => setNuevoCanal(k)} style={{ background:nuevoCanal===k?`${r.color}15`:"#FFFAF4", border:`1px solid ${nuevoCanal===k?r.color:"#E8DDD0"}`, borderRadius:9, padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                  <div><div style={{ fontSize:13, color:nuevoCanal===k?r.color:"#6a5a4a", fontWeight:700 }}>{r.emoji} {r.nombre}</div><div style={{ fontSize:11, color:"#9a8a7a", marginTop:3 }}>{r.pasos.length} pasos</div></div>
+                  {nuevoCanal===k && <div style={{ color:r.color }}>✓</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginBottom:20 }}>
+            <div style={{ fontSize:10, color:"#9a8a7a", letterSpacing:"2px", marginBottom:10, fontWeight:700 }}>NOMBRE DEL VIDEO</div>
+            <input value={nuevoNombre} onChange={e=>setNuevoNombre(e.target.value)} onKeyDown={e=>e.key==="Enter"&&crearVideo()} placeholder="Ej: Unboxing Looney Tunes #3, Ep01 La Ley Llama..." style={{ width:"100%", background:"#FFFAF4", border:"2px solid #E8DDD0", borderRadius:10, padding:"13px 14px", color:"#2a2020", fontSize:13, fontFamily:"'Nunito',sans-serif" }} />
+          </div>
+          <button onClick={crearVideo} disabled={!nuevoNombre.trim()} style={{ width:"100%", background:nuevoNombre.trim()?RUTAS[nuevoCanal].color:"#E8DDD0", color:nuevoNombre.trim()?"#fff":"#b0a090", border:"none", borderRadius:10, padding:"15px", fontSize:13, cursor:nuevoNombre.trim()?"pointer":"not-allowed", fontFamily:"'Bangers',cursive", letterSpacing:"1px" }}>CREAR Y VER RUTA CRÍTICA →</button>
+        </div>
+      )}
+
+      {view==="ruta" && video && ruta && (
+        <div style={{ padding:"20px 18px" }} className="fu">
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+            <button className="c" onClick={() => setView("videos")} style={{ background:"transparent", border:"none", color:"#444", fontSize:18, cursor:"pointer" }}>←</button>
+            <div><div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:17, color:video.color }}>{video.emoji} {video.nombre}</div><div style={{ fontSize:11, color:"#9a8a7a" }}>{RUTAS[video.canal].nombre}</div></div>
+          </div>
+          {(() => { const p=getProgreso(video); return (
+            <div style={{ background:"#FFFAF4", border:`1px solid ${video.color}30`, borderRadius:12, padding:"12px 14px", marginBottom:16, boxShadow:"0 2px 8px #00000008" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}><div style={{ fontSize:12, color:"#9a8a7a", fontWeight:600 }}>Progreso</div><div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:16, color:video.color }}>{p.pct}%</div></div>
+              <div style={{ height:5, background:"#E8DDD0", borderRadius:3 }}><div style={{ height:"100%", width:`${p.pct}%`, background:video.color, borderRadius:2, transition:"width .4s" }} /></div>
+              <div style={{ fontSize:11, color:"#9a8a7a", marginTop:6 }}>~{ruta.pasos.filter(p=>!video.completados[p.id]).reduce((a,p)=>a+(p.minutos||0),0)} min restantes estimados</div>
+            </div>
+          ); })()}
+          <div style={{ display:"flex", gap:14, marginBottom:14, flexWrap:"wrap", background:"#FFFAF4", padding:"10px 12px", borderRadius:8 }}>
+            {[["✓","#4CAF50","Completado"],["●",video.color,"Disponible"],["○","#2a2a2a","Bloqueado"]].map(([s,c,l])=>(
+              <div key={l} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, color:"#9a8a7a" }}><span style={{ color:c }}>{s}</span>{l}</div>
+            ))}
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {ruta.pasos.map(paso => {
+              const estado = getPasoEstado(video, paso);
+              const done = estado==="done"; const disp = estado==="disponible"; const bloq = estado==="bloqueado";
+              const activo = contandoId===paso.id;
+              return (
+                <div key={paso.id} style={{ background:done?"#F0FFF4":activo?`${video.color}10`:"#FFFAF4", border:`1px solid ${done?"#b8dfc4":activo?`${video.color}60`:disp?`${video.color}40`:"#E8DDD0"}`, borderRadius:9, padding:"13px 14px", opacity:bloq?0.4:1, transition:"all .2s" }}>
+                  <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+                    <div onClick={()=>!bloq&&togglePaso(video.id,paso.id)} style={{ width:22, height:22, borderRadius:"50%", flexShrink:0, marginTop:1, background:done?"#4CAF50":disp?`${video.color}20`:"#111", border:`2px solid ${done?"#4CAF50":disp?video.color:"#222"}`, cursor:bloq?"default":"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:done?"#fff":video.color, transition:"all .2s" }}>{done?"✓":bloq?"○":"●"}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3, flexWrap:"wrap" }}>
+                        <span style={{ fontSize:13, color:done?"#9a8a7a":"#2a2020", textDecoration:done?"line-through":"none", fontWeight:done?400:700 }}>{paso.label}</span>
+                        {paso.paralelo&&!done&&<span style={{ fontSize:9, background:"#1a1a2a", color:"#4A90D9", padding:"2px 6px", borderRadius:4 }}>PARALELO</span>}
+                      </div>
+                      <div style={{ fontSize:11, color:"#9a8a7a", lineHeight:1.6, marginBottom:5 }}>{paso.desc}</div>
+                      <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+                        <span style={{ fontSize:9, background:`${TIPO_COLOR[paso.tipo]}18`, color:TIPO_COLOR[paso.tipo], padding:"2px 7px", borderRadius:4 }}>{TIPO_LABEL[paso.tipo]}</span>
+                        {paso.minutos ? <span style={{ fontSize:11, color:"#9a8a7a" }}>⏱ {paso.minutos}min tight / {paso.minutosMax}min max</span> : <span style={{ fontSize:11, color:"#9a8a7a", fontStyle:"italic" }}>⏱ tiempo por definir</span>}
+                        {paso.soloUnaVez&&<span style={{ fontSize:9, background:"#1a2a1a", color:"#4CAF50", padding:"2px 6px", borderRadius:4 }}>SOLO 1 VEZ</span>}
+                        {paso.esExperimento&&<span style={{ fontSize:9, background:"#2a1a2a", color:"#E040FB", padding:"2px 6px", borderRadius:4 }}>EXPERIMENTO</span>}
+                      </div>
+                      {disp&&paso.tip&&<div style={{ marginTop:8, fontSize:11, color:"#7a6a5a", borderLeft:`3px solid ${video.color}60`, paddingLeft:9, lineHeight:1.6, fontStyle:"italic" }}>{paso.tip}</div>}
+                      {activo&&<div style={{ marginTop:12 }}><Countdown totalSeg={paso.minutos*60} onComplete={()=>{ playAlarm(); }} /></div>}
+                    </div>
+                    {disp&&!done&&paso.minutos&&(
+                      <button className="c" onClick={()=>setContandoId(contandoId===paso.id?null:paso.id)} style={{ background:activo?"transparent":`${video.color}20`, border:`1px solid ${video.color}50`, color:video.color, borderRadius:6, padding:"6px 10px", fontSize:12, cursor:"pointer", flexShrink:0 }}>{activo?"✕":"⏱"}</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button className="c" onClick={() => { setVideos(v=>v.filter(x=>x.id!==video.id)); setView("videos"); }} style={{ marginTop:24, width:"100%", background:"transparent", border:"1px solid #ffcccc", color:"#cc6666", borderRadius:8, padding:"10px", fontSize:11, cursor:"pointer" }}>Eliminar este proyecto</button>
+        </div>
+      )}
+
+      {view==="accion" && (
+        <div style={{ padding:"20px 18px" }} className="fu">
+          <div style={{ fontFamily:"'Bangers',cursive", fontWeight:400, fontSize:28, color:"#2a2020", letterSpacing:"1px", marginBottom:4 }}>⚡ Acción</div>
+          <div style={{ fontSize:13, color:"#9a8a7a", marginBottom:20 }}>¿Cuánto tiempo tienes? Te digo qué hacer ahora mismo.</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:20 }}>
+            {[["tiempo","⏰ Por tiempo","Dices cuántos min tienes"],["tarea","📋 Por tarea","Eliges tarea, app da el timer"]].map(([k,l,d])=>(
+              <div key={k} className="lift" onClick={()=>setModoAccion(k)} style={{ background:modoAccion===k?"#2a2020":"#FFFAF4", border:`1px solid ${modoAccion===k?"#2a2020":"#E8DDD0"}`, borderRadius:9, padding:"12px", cursor:"pointer" }}>
+                <div style={{ fontSize:13, color:modoAccion===k?"#FFF8F0":"#6a5a4a", marginBottom:3, fontWeight:700 }}>{l}</div>
+                <div style={{ fontSize:11, color:"#9a8a7a" }}>{d}</div>
+              </div>
+            ))}
+          </div>
+          {videos.length===0 ? (
+            <div style={{ textAlign:"center", padding:"40px", color:"#c4b4a4" }}>
+              <div style={{ fontSize:11, marginBottom:10 }}>No hay videos en producción</div>
+              <button className="c" onClick={()=>setView("nuevo")} style={{ background:"#F5A623", color:"#000", border:"none", borderRadius:7, padding:"10px 18px", fontSize:12, cursor:"pointer", fontFamily:"'Bangers',cursive", letterSpacing:"1px" }}>+ CREAR VIDEO</button>
+            </div>
+          ) : modoAccion==="tiempo" ? (
+            <div>
+              <div style={{ fontSize:10, color:"#9a8a7a", letterSpacing:"2px", marginBottom:10, fontWeight:700 }}>TIEMPO DISPONIBLE AHORA</div>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:20 }}>
+                {[5,10,15,20,30,45,60,90,120].map(t=>(
+                  <button key={t} className="c" onClick={()=>setTiempoDisponible(t)} style={{ background:tiempoDisponible===t?"#2a2020":"#FFFAF4", color:tiempoDisponible===t?"#FFF8F0":"#6a5a4a", border:`1px solid ${tiempoDisponible===t?"#2a2020":"#E8DDD0"}`, borderRadius:6, padding:"8px 14px", fontSize:12, cursor:"pointer", fontFamily:"'DM Mono',monospace", transition:"all .15s" }}>{t}min</button>
+                ))}
+              </div>
+              {(() => {
+                const todas = videos.flatMap(v=>getTareasDisponibles(v).map(p=>({...p,video:v})));
+                const caben = todas.filter(t=>t.minutos<=tiempoDisponible);
+                const parciales = todas.filter(t=>!t.minutos||t.minutos>tiempoDisponible);
+                if(todas.length===0) return <div style={{ textAlign:"center", padding:"30px", color:"#c4b4a4", fontSize:12 }}>No hay tareas disponibles aún.</div>;
+                return (
+                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                    {caben.length>0&&<><div style={{ fontSize:11, color:"#9a8a7a", letterSpacing:"2px", marginBottom:4, fontWeight:700 }}>✓ CABEN EN TU TIEMPO</div>{caben.map((t,i)=><TareaCard key={`c-${i}`} t={t} tiempoDisponible={tiempoDisponible} parcial={false} tareaSeleccionada={tareaSeleccionada} setTareaSeleccionada={setTareaSeleccionada} playAlarm={playAlarm} />)}</>}
+                    {parciales.length>0&&<><div style={{ fontSize:11, color:"#9a8a7a", letterSpacing:"2px", margin:"12px 0 4px", fontWeight:700 }}>⚡ PUEDES ADELANTARLE</div>{parciales.map((t,i)=><TareaCard key={`p-${i}`} t={t} tiempoDisponible={tiempoDisponible} parcial={true} tareaSeleccionada={tareaSeleccionada} setTareaSeleccionada={setTareaSeleccionada} playAlarm={playAlarm} />)}</>}
+                  </div>
+                );
+              })()}
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize:10, color:"#9a8a7a", letterSpacing:"2px", marginBottom:10, fontWeight:700 }}>ELIGE UNA TAREA</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {videos.flatMap(v=>getTareasDisponibles(v).map(p=>({...p,video:v}))).map((t,i)=>(
+                  <div key={i} style={{ background:"#FFFAF4", border:`1px solid ${tareaSeleccionada===`${t.video.id}-${t.id}`?t.video.color:"#1c1c22"}`, borderLeft:`3px solid ${t.video.color}`, borderRadius:9, padding:"13px 14px" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, marginBottom:tareaSeleccionada===`${t.video.id}-${t.id}`?12:0 }}>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:11, color:t.video.color, marginBottom:3, fontWeight:700 }}>{t.video.emoji} {t.video.nombre}</div>
+                        <div style={{ fontSize:13, color:"#2a2020", fontWeight:700 }}>{t.label}</div>
+                        <div style={{ fontSize:11, color:"#9a8a7a", marginTop:3 }}>{t.minutos?`⏱ ${t.minutos}min tight · ${t.minutosMax}min max`:"⏱ tú decides el tiempo"}</div>
+                      </div>
+                      <button className="c" onClick={()=>setTareaSeleccionada(tareaSeleccionada===`${t.video.id}-${t.id}`?null:`${t.video.id}-${t.id}`)} style={{ background:tareaSeleccionada===`${t.video.id}-${t.id}`?"transparent":`${t.video.color}20`, border:`1px solid ${t.video.color}50`, color:t.video.color, borderRadius:6, padding:"6px 12px", fontSize:12, cursor:"pointer", flexShrink:0 }}>{tareaSeleccionada===`${t.video.id}-${t.id}`?"✕":"⏱ START"}</button>
+                    </div>
+                    {tareaSeleccionada===`${t.video.id}-${t.id}`&&(
+                      <div>
+                        {t.tip&&<div style={{ fontSize:11, color:"#9a8a7a", borderLeft:`2px solid ${t.video.color}40`, paddingLeft:9, lineHeight:1.6, marginBottom:12 }}>{t.tip}</div>}
+                        {t.minutos&&<Countdown totalSeg={t.minutos*60} onComplete={()=>playAlarm()} />}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
