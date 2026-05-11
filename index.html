@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -90,17 +91,18 @@ function useStorage(key, defaultValue) {
   return [value, setValue];
 }
 
-function Countdown({ totalSeg, onComplete }) {
+function Countdown({ totalSeg, onComplete, onSaveTime }) {
   const [restante, setRestante] = useState(totalSeg);
   const [activo, setActivo] = useState(false);
   const [empezado, setEmpezado] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
     if (activo && restante > 0) {
-      ref.current = setInterval(() => setRestante(s => { if (s <= 1) { clearInterval(ref.current); setActivo(false); onComplete?.(); return 0; } return s - 1; }), 1000);
+      ref.current = setInterval(() => setRestante(s => { if (s <= 1) { clearInterval(ref.current); setActivo(false); onComplete?.(); onSaveTime?.(Math.ceil(totalSeg/60)); return 0; } return s - 1; }), 1000);
     } else clearInterval(ref.current);
     return () => clearInterval(ref.current);
   }, [activo]);
+  const transcurrido = Math.max(1, Math.ceil((totalSeg - restante) / 60));
   const pct = Math.max(0, (restante / totalSeg) * 100);
   const min = Math.floor(restante / 60);
   const seg = restante % 60;
@@ -112,7 +114,7 @@ function Countdown({ totalSeg, onComplete }) {
         <div style={{ height:"100%", width:`${pct}%`, borderRadius:3, background:color, transition:"width 1s linear, background 0.5s" }} />
       </div>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div style={{ fontFamily:"'Bangers',cursive", fontWeight:400, fontSize:44, color, letterSpacing:"2px" }}>
+        <div style={{ fontFamily:"'Bangers',cursive", fontWeight:400, fontSize:30, color, letterSpacing:"2px" }}>
           {String(min).padStart(2,"0")}:{String(seg).padStart(2,"0")}
         </div>
         <div style={{ display:"flex", gap:8 }}>
@@ -121,12 +123,13 @@ function Countdown({ totalSeg, onComplete }) {
           ) : (
             <>
               <button onClick={() => setActivo(a => !a)} style={{ background:activo?"#1c1c22":color, color:activo?"#666":"#000", border:"none", borderRadius:8, padding:"10px 16px", fontSize:16, cursor:"pointer" }}>{activo?"⏸":"▶"}</button>
+              {onSaveTime && <button onClick={() => onSaveTime(transcurrido)} style={{ background:"#F0FFF4", border:"1px solid #4CAF5060", color:"#4CAF50", borderRadius:8, padding:"10px 10px", fontSize:11, cursor:"pointer", fontWeight:700 }}>💾 {transcurrido}m</button>}
               <button onClick={() => { setRestante(totalSeg); setActivo(false); setEmpezado(false); }} style={{ background:"transparent", border:"1px solid #222", color:"#444", borderRadius:8, padding:"10px 14px", fontSize:14, cursor:"pointer" }}>↺</button>
             </>
           )}
         </div>
       </div>
-      {urgente && empezado && <div style={{ marginTop:10, fontSize:11, color:"#FF4444", textAlign:"center", fontFamily:"'Bangers',cursive", letterSpacing:"1px", letterSpacing:"1px" }}>⚡ ÚLTIMOS MINUTOS — TERMINA YA</div>}
+      {urgente && empezado && <div style={{ marginTop:10, fontSize:11, color:"#FF4444", textAlign:"center", fontFamily:"'Bangers',cursive", letterSpacing:"1px" }}>⚡ ÚLTIMOS MINUTOS — TERMINA YA</div>}
     </div>
   );
 }
@@ -172,6 +175,10 @@ function App() {
   const [modoAccion, setModoAccion] = useState("tiempo");
   const [tareaSeleccionada, setTareaSeleccionada] = useState(null);
   const [contandoId, setContandoId] = useState(null);
+  const [editandoNombre, setEditandoNombre] = useState(false);
+  const [notasAbiertas, setNotasAbiertas] = useState({});
+
+  const updateVideo = (id, fn) => setVideos(vs => vs.map(v => v.id !== id ? v : { ...v, ...fn(v) }));
 
   const crearVideo = () => {
     if (!nuevoNombre.trim()) return;
@@ -189,9 +196,7 @@ function App() {
   const getPasoEstado = (video, paso) => {
     if (!video) return "bloqueado";
     if (video.completados[paso.id]) return "done";
-    if (paso.paralelo) return "disponible";
-    const bloqueadores = RUTAS[video.canal].pasos.filter(p => p.bloquea.includes(paso.id));
-    return bloqueadores.every(p => video.completados[p.id]) ? "disponible" : "bloqueado";
+    return "disponible";
   };
 
   const getTareasDisponibles = (video) => RUTAS[video.canal].pasos.filter(p => getPasoEstado(video, p) === "disponible").sort((a,b) => (a.minutos||999)-(b.minutos||999));
@@ -222,8 +227,8 @@ function App() {
       <div style={{ position:"sticky", top:0, zIndex:99, background:"#FFF8F0", borderBottom:"2px solid #E8DDD0", boxShadow:"0 2px 12px #00000010", padding:"13px 18px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div style={{ fontFamily:"'Bangers',cursive", fontWeight:400, fontSize:22, letterSpacing:"2px" }}>CREATOR<span style={{ color:video?.color||"#F5A623" }}>_OS</span></div>
         <div style={{ display:"flex", gap:4 }}>
-          {[["videos","🎬"],["accion","⚡"]].map(([v,l]) => (
-            <button key={v} className="c" onClick={() => setView(v)} style={{ background:view===v||view==="ruta"&&v==="videos"?"#2a2020":"transparent", border:`1px solid ${view===v?"#2a2020":"transparent"}`, color:view===v?"#FFF8F0":"#9a8a7a", padding:"5px 12px", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"'DM Mono',monospace" }}>{l}</button>
+          {[["videos","🎬 Videos"],["accion","⚡ Acción"]].map(([v,l]) => (
+            <button key={v} className="c" onClick={() => setView(v)} style={{ background:view===v||(view==="ruta"&&v==="videos")?"#2a2020":"#E8DDD0", border:`1px solid ${view===v||(view==="ruta"&&v==="videos")?"#2a2020":"#C8C0B0"}`, color:view===v||(view==="ruta"&&v==="videos")?"#FFF8F0":"#4a3a2a", padding:"7px 16px", borderRadius:7, fontSize:13, cursor:"pointer", fontFamily:"'Nunito',sans-serif", fontWeight:700 }}>{l}</button>
           ))}
         </div>
       </div>
@@ -280,7 +285,17 @@ function App() {
         <div style={{ padding:"20px 18px" }} className="fu">
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
             <button className="c" onClick={() => setView("videos")} style={{ background:"transparent", border:"none", color:"#444", fontSize:18, cursor:"pointer" }}>←</button>
-            <div><div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:17, color:video.color }}>{video.emoji} {video.nombre}</div><div style={{ fontSize:11, color:"#9a8a7a" }}>{RUTAS[video.canal].nombre}</div></div>
+            <div>
+              {editandoNombre ? (
+                <input autoFocus defaultValue={video.nombre} onBlur={e => { const n=e.target.value.trim(); if(n) updateVideo(video.id,()=>({nombre:n})); setEditandoNombre(false); }} onKeyDown={e => { if(e.key==="Enter") e.target.blur(); if(e.key==="Escape") setEditandoNombre(false); }} style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:17, color:video.color, background:"transparent", border:`1px solid ${video.color}70`, borderRadius:5, padding:"2px 6px", outline:"none", width:"100%" }} />
+              ) : (
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:17, color:video.color }}>{video.emoji} {video.nombre}</div>
+                  <button onClick={() => setEditandoNombre(true)} style={{ fontSize:12, background:"transparent", border:"none", color:"#9a8a7a", cursor:"pointer", padding:"2px", lineHeight:1 }}>✏️</button>
+                </div>
+              )}
+              <div style={{ fontSize:11, color:"#9a8a7a" }}>{RUTAS[video.canal].nombre}</div>
+            </div>
           </div>
           {(() => { const p=getProgreso(video); return (
             <div style={{ background:"#FFFAF4", border:`1px solid ${video.color}30`, borderRadius:12, padding:"12px 14px", marginBottom:16, boxShadow:"0 2px 8px #00000008" }}>
@@ -299,6 +314,10 @@ function App() {
               const estado = getPasoEstado(video, paso);
               const done = estado==="done"; const disp = estado==="disponible"; const bloq = estado==="bloqueado";
               const activo = contandoId===paso.id;
+              const tiempoGuardado = (video.tiempos||{})[paso.id];
+              const notaKey = `${video.id}-${paso.id}`;
+              const notaAbierta = !!notasAbiertas[notaKey];
+              const notaTexto = (video.notas||{})[paso.id] || "";
               return (
                 <div key={paso.id} style={{ background:done?"#F0FFF4":activo?`${video.color}10`:"#FFFAF4", border:`1px solid ${done?"#b8dfc4":activo?`${video.color}60`:disp?`${video.color}40`:"#E8DDD0"}`, borderRadius:9, padding:"13px 14px", opacity:bloq?0.4:1, transition:"all .2s" }}>
                   <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
@@ -307,6 +326,7 @@ function App() {
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3, flexWrap:"wrap" }}>
                         <span style={{ fontSize:13, color:done?"#9a8a7a":"#2a2020", textDecoration:done?"line-through":"none", fontWeight:done?400:700 }}>{paso.label}</span>
                         {paso.paralelo&&!done&&<span style={{ fontSize:9, background:"#1a1a2a", color:"#4A90D9", padding:"2px 6px", borderRadius:4 }}>PARALELO</span>}
+                        {tiempoGuardado&&<span style={{ fontSize:9, background:"#F0FFF4", color:"#4CAF50", border:"1px solid #4CAF5040", padding:"2px 7px", borderRadius:4, fontWeight:700 }}>✓ {tiempoGuardado}min</span>}
                       </div>
                       <div style={{ fontSize:11, color:"#9a8a7a", lineHeight:1.6, marginBottom:5 }}>{paso.desc}</div>
                       <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
@@ -316,7 +336,16 @@ function App() {
                         {paso.esExperimento&&<span style={{ fontSize:9, background:"#2a1a2a", color:"#E040FB", padding:"2px 6px", borderRadius:4 }}>EXPERIMENTO</span>}
                       </div>
                       {disp&&paso.tip&&<div style={{ marginTop:8, fontSize:11, color:"#7a6a5a", borderLeft:`3px solid ${video.color}60`, paddingLeft:9, lineHeight:1.6, fontStyle:"italic" }}>{paso.tip}</div>}
-                      {activo&&<div style={{ marginTop:12 }}><Countdown totalSeg={paso.minutos*60} onComplete={()=>{ playAlarm(); }} /></div>}
+                      {activo&&<div style={{ marginTop:12 }}><Countdown totalSeg={paso.minutos*60} onComplete={()=>{ playAlarm(); updateVideo(video.id, v=>({ tiempos:{...(v.tiempos||{}),[paso.id]:paso.minutos} })); }} onSaveTime={min=>updateVideo(video.id, v=>({ tiempos:{...(v.tiempos||{}),[paso.id]:min} }))} /></div>}
+                      <div style={{ marginTop:10, display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+                        <button onClick={()=>setNotasAbiertas(n=>({...n,[notaKey]:!n[notaKey]}))} style={{ fontSize:10, background:"transparent", border:"1px solid #D0C8B8", color: notaTexto?"#5a8a6a":"#9a8a7a", borderRadius:5, padding:"3px 8px", cursor:"pointer" }}>{notaAbierta?"✕ notas":"📝 notas"}{notaTexto&&!notaAbierta?" ●":""}</button>
+                        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                          <span style={{ fontSize:10, color:"#9a8a7a" }}>Tiempo real:</span>
+                          <input type="number" min="1" value={tiempoGuardado??""} onChange={e=>{ const val=parseInt(e.target.value); updateVideo(video.id, v=>{ const t={...(v.tiempos||{})}; if(!isNaN(val)&&val>0) t[paso.id]=val; else delete t[paso.id]; return {tiempos:t}; }); }} placeholder="—" style={{ width:46, fontSize:11, background:"#F5F0E8", border:"1px solid #D0C8B8", borderRadius:5, padding:"3px 6px", color:"#2a2020", textAlign:"center" }} />
+                          <span style={{ fontSize:10, color:"#9a8a7a" }}>min</span>
+                        </div>
+                      </div>
+                      {notaAbierta&&<textarea value={notaTexto} onChange={e=>updateVideo(video.id, v=>({ notas:{...(v.notas||{}),[paso.id]:e.target.value} }))} placeholder="Anotaciones sobre este paso..." rows={3} style={{ marginTop:8, width:"100%", background:"#FFFAF4", border:"1px solid #D0C8B8", borderRadius:7, padding:"8px 10px", fontSize:11, color:"#2a2020", resize:"vertical", fontFamily:"'Nunito',sans-serif", lineHeight:1.6 }} />}
                     </div>
                     {disp&&!done&&paso.minutos&&(
                       <button className="c" onClick={()=>setContandoId(contandoId===paso.id?null:paso.id)} style={{ background:activo?"transparent":`${video.color}20`, border:`1px solid ${video.color}50`, color:video.color, borderRadius:6, padding:"6px 10px", fontSize:12, cursor:"pointer", flexShrink:0 }}>{activo?"✕":"⏱"}</button>
@@ -403,3 +432,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
+```
+
+Pega esto en tu archivo del repo, guarda, y haz commit/push.
